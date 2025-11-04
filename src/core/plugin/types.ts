@@ -3,6 +3,11 @@ import type React from 'react'
 import type { CanvasEngine } from '../engine/CanvasEngine'
 import type { EventBus } from '../engine/EventBus'
 
+// Forward declaration
+interface PluginManager {
+  executeCommand(commandId: string, ...args: unknown[]): Promise<void>
+}
+
 /**
  * Plugin 인터페이스
  * 모든 플러그인이 구현해야 하는 기본 구조
@@ -25,6 +30,7 @@ export interface PluginContext {
   // 핵심 시스템
   events: EventBus
   engine: CanvasEngine
+  pluginManager?: PluginManager
 
   // 등록 API
   registerTool(tool: Tool): void

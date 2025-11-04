@@ -18,7 +18,7 @@ export class EventBus {
     this.listeners.get(event)?.add(handler as EventHandler)
 
     if (this.debugMode) {
-      console.log(`[EventBus] Subscribed to: ${event}`)
+      // console.log(`[EventBus] Subscribed to: ${event}`)
     }
 
     // 구독 해제 함수 반환
@@ -32,7 +32,7 @@ export class EventBus {
     const handlers = this.listeners.get(event)
 
     if (this.debugMode) {
-      console.log(`[EventBus] Emitting: ${event}`, data)
+      // console.log(`[EventBus] Emitting: ${event}`, data)
     }
 
     if (handlers) {
@@ -53,7 +53,7 @@ export class EventBus {
     this.listeners.get(event)?.delete(handler as EventHandler)
 
     if (this.debugMode) {
-      console.log(`[EventBus] Unsubscribed from: ${event}`)
+      // console.log(`[EventBus] Unsubscribed from: ${event}`)
     }
   }
 

@@ -29,6 +29,13 @@ export class PluginManager {
   }
 
   /**
+   * EventBus 접근
+   */
+  getEventBus(): EventBus {
+    return this.events
+  }
+
+  /**
    * 플러그인 등록
    */
   register(plugin: Plugin): void {
@@ -118,6 +125,7 @@ export class PluginManager {
     return {
       events: this.events,
       engine: this.engine,
+      pluginManager: this,
 
       registerTool: (tool) => {
         this.registry.tools.set(tool.id, tool)

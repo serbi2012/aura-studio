@@ -2,13 +2,20 @@ import type { PluginManager } from '@/core/plugin/PluginManager'
 import { Separator } from '@/shared/components/Separator'
 import { SlotRenderer } from '@/shared/components/SlotRenderer'
 import { TooltipProvider } from '@/shared/components/Tooltip'
-import type React from 'react'
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Stage } from 'react-konva'
 import { bootstrap } from './bootstrap'
 
 export const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [pluginManager, setPluginManager] = useState<PluginManager | null>(null)
+  const [shapeRenderer, setShapeRenderer] = useState<React.ComponentType | null>(null)
+  const [penPreviewRenderer, setPenPreviewRenderer] = useState<React.ComponentType | null>(null)
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  })
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -16,9 +23,36 @@ export const App: React.FC = () => {
     let cleanup: (() => void) | undefined
 
     bootstrap(containerRef.current)
-      .then(({ pluginManager: pm, cleanup: cleanupFn }) => {
+      .then(({ pluginManager: pm, cleanup: cleanupFn, events, createDefaultArtboard }) => {
         setPluginManager(pm)
         cleanup = cleanupFn
+
+        // ShapeRenderer 컴포넌트 받기
+        events.on<{ ShapeRenderer: React.ComponentType }>(
+          'shape-renderer:ready',
+          ({ ShapeRenderer }) => {
+            console.log('[App] ShapeRenderer received')
+            setShapeRenderer(() => ShapeRenderer)
+          },
+        )
+
+        // PenPreviewRenderer 컴포넌트 받기
+        events.on<{ PenPreviewLayer: React.ComponentType }>(
+          'pen-preview:ready',
+          ({ PenPreviewLayer }) => {
+            console.log('[App] PenPreviewLayer received')
+            setPenPreviewRenderer(() => PenPreviewLayer)
+          },
+        )
+
+        // 이벤트 리스너가 등록된 후 렌더러들을 다시 요청
+        // (이미 emit된 이벤트를 놓쳤을 수 있으므로)
+        setTimeout(() => {
+          // ShapePlugin에 렌더러 재전송 요청
+          events.emit('request-renderers')
+          // 기본 아트보드 생성
+          createDefaultArtboard()
+        }, 0)
       })
       .catch((error) => {
         console.error('[App] Bootstrap error:', error)
@@ -26,6 +60,25 @@ export const App: React.FC = () => {
 
     return () => {
       cleanup?.()
+    }
+  }, [])
+
+  // 캔버스 컨테이너 크기 관찰
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect()
+        console.log('[App] Canvas dimensions:', { width: rect.width, height: rect.height })
+        setDimensions({ width: rect.width, height: rect.height })
+      }
+    }
+
+    // 초기 크기 설정을 약간 지연시켜 DOM이 완전히 렌더링된 후 실행
+    setTimeout(updateCanvasSize, 100)
+    window.addEventListener('resize', updateCanvasSize)
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasSize)
     }
   }, [])
 
@@ -69,8 +122,58 @@ export const App: React.FC = () => {
           </div>
 
           {/* 캔버스 영역 */}
-          <div className="flex-1 relative bg-muted/20" ref={containerRef}>
-            {/* Konva 캔버스가 여기에 렌더링됨 */}
+          <div ref={canvasContainerRef} className="flex-1 relative bg-gray-300">
+            <div ref={containerRef} className="absolute inset-0">
+              {dimensions.width > 0 && dimensions.height > 0 ? (
+                <Stage
+                  width={dimensions.width}
+                  height={dimensions.height}
+                  onMouseDown={(e) => {
+                    if (pluginManager) {
+                      const stage = e.target.getStage()
+                      const pos = stage?.getPointerPosition()
+                      if (pos) {
+                        pluginManager
+                          .getEventBus()
+                          .emit('canvas:pointer:down', { x: pos.x, y: pos.y, button: 0 })
+                      }
+                    }
+                  }}
+                  onMouseMove={(e) => {
+                    if (pluginManager) {
+                      const stage = e.target.getStage()
+                      const pos = stage?.getPointerPosition()
+                      if (pos) {
+                        pluginManager
+                          .getEventBus()
+                          .emit('canvas:pointer:move', { x: pos.x, y: pos.y })
+                      }
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    if (pluginManager) {
+                      const stage = e.target.getStage()
+                      const pos = stage?.getPointerPosition()
+                      if (pos) {
+                        pluginManager
+                          .getEventBus()
+                          .emit('canvas:pointer:up', { x: pos.x, y: pos.y, button: 0 })
+                      }
+                    }
+                  }}
+                >
+                  {/* ShapeRenderer */}
+                  {shapeRenderer && React.createElement(shapeRenderer)}
+
+                  {/* PenPreviewRenderer */}
+                  {penPreviewRenderer && React.createElement(penPreviewRenderer)}
+                </Stage>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                  Canvas initializing... ({dimensions.width} x {dimensions.height})
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 우측 패널 */}

@@ -18,7 +18,7 @@ export class SelectTool implements Tool {
     private onDragStart?: (pos: { x: number; y: number }) => void,
     private onDragMove?: (pos: { x: number; y: number }) => void,
     private onDragEnd?: () => void,
-  ) { }
+  ) {}
 
   onActivate(): void {
     this.isActive = true
